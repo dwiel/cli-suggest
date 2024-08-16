@@ -140,3 +140,4 @@ stable-baselines
 
 # windows WSL 2
 wsl.localhost
+.aider*
