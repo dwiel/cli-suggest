@@ -5,6 +5,8 @@ import anthropic
 import json
 import argparse
 import tempfile
+import re
+from typing import List, Tuple
 from ratelimit import limits, sleep_and_retry
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -12,7 +14,7 @@ from prompt_toolkit.history import FileHistory
 API_KEY = None
 RATE_LIMIT = 20  # requests per minute
 
-def load_api_key():
+def load_api_key() -> None:
     global API_KEY
     config_file = os.path.expanduser('~/.config/scratch/config.json')
     if os.path.exists(config_file):
@@ -36,7 +38,7 @@ def rate_limited_api_call(client, prompt, max_tokens=100):
         messages=[{"role": "user", "content": prompt}]
     )
 
-def get_suggestion(query, conversation_history, is_multiline=False):
+def get_suggestion(query: str, conversation_history: str, is_multiline: bool = False) -> str:
     """Use Claude to suggest a command or script based on the query and conversation history"""
     client = anthropic.Anthropic(api_key=API_KEY)
     
@@ -78,7 +80,7 @@ Provide a concise and informative answer:"""
     message = rate_limited_api_call(client, prompt, max_tokens=300)
     return message.content[0].text.strip()
 
-def extract_code_from_backticks(text):
+def extract_code_from_backticks(text: str) -> str:
     """Extract code from triple backticks if present."""
     import re
     match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', text)

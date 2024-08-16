@@ -21,7 +21,7 @@ def greet(name):
 ```
 End of code."""
         expected_output = """def greet(name):
-    return f"Hello, {name}!"""
+    return f"Hello, {name}!\""""
         self.assertEqual(extract_code_from_backticks(input_text), expected_output)
 
     def test_no_backticks(self):
