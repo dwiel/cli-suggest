@@ -78,8 +78,16 @@ Provide a concise and informative answer:"""
     message = rate_limited_api_call(client, prompt, max_tokens=300)
     return message.content[0].text.strip()
 
+def extract_code_from_backticks(text):
+    """Extract code from triple backticks if present."""
+    import re
+    match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', text)
+    return match.group(1) if match else text
+
 def execute_command(suggested_command, is_multiline=False):
     try:
+        suggested_command = extract_code_from_backticks(suggested_command)
+        
         if is_multiline:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as temp_script:
                 temp_script.write(suggested_command)
