@@ -140,12 +140,27 @@ def process_suggestion(query, conversation_history=""):
         suggested_script = get_suggestion(script_request, conversation_history, is_multiline=True)
         print(f"Suggested script:\n{suggested_script}")
         
-        run_choice = input("\nRun this script? [Y/n]: ").lower()
-        if run_choice in ['y', '']:
-            captured_output = execute_command(suggested_script, is_multiline=True)
-            return f"/multi {script_request}", captured_output
-        else:
-            return f"/multi {script_request}", "[Script not executed]"
+        while True:
+            choice = input("\nRun this script? [Y]es/[N]o/[E]dit: ").lower()
+            if choice in ['y', 'yes', '']:
+                captured_output = execute_command(suggested_script, is_multiline=True)
+                return f"/multi {script_request}", captured_output
+            elif choice in ['n', 'no']:
+                return f"/multi {script_request}", "[Script not executed]"
+            elif choice in ['e', 'edit']:
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as temp_script:
+                    temp_script.write(suggested_script)
+                    temp_script_path = temp_script.name
+                
+                subprocess.run(['vi', temp_script_path])
+                
+                with open(temp_script_path, 'r') as temp_script:
+                    suggested_script = temp_script.read()
+                
+                os.unlink(temp_script_path)
+                print(f"Updated script:\n{suggested_script}")
+            else:
+                print("Invalid choice. Please enter Y, N, or E.")
     else:
         suggested_command = get_suggestion(query, conversation_history)
         print(f"> {suggested_command}")
