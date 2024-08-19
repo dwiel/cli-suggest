@@ -130,8 +130,8 @@ def process_suggestion(query, conversation_history=""):
         answer = ask_question(question, conversation_history)
         print(f"Answer: {answer}")
         return f"/ask {question}", answer
-    elif query.startswith("!"):
-        command = query[1:].strip()
+    elif query.startswith("/sh "):
+        command = query[4:].strip()
         print(f"> {command}")
         captured_output = execute_command(command)
         return command, captured_output
