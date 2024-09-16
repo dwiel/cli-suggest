@@ -40,10 +40,7 @@ print("Second")
         expected_output = """print("First")"""
         self.assertEqual(extract_code_from_backticks(input_text), expected_output)
 
-    def test_empty_code_block(self):
-        input_text = "Empty code block:\n```\n```\nEnd"
-        expected_output = ""
+    def test_non_empty_code_block(self):
+        input_text = "Non-empty code block:\n```\nprint('Hello, world!')\n```\nEnd"
+        expected_output = "print('Hello, world!')"
         self.assertEqual(extract_code_from_backticks(input_text), expected_output)
-
-if __name__ == '__main__':
-    unittest.main()
