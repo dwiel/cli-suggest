@@ -19,20 +19,26 @@ import html2text
 
 API_KEY = None
 RATE_LIMIT = 20  # requests per minute
+PERPLEXITY_API_KEY = None
 
 
-def load_api_key() -> None:
-    global API_KEY
+def load_api_keys() -> None:
+    global API_KEY, PERPLEXITY_API_KEY
     config_file = os.path.expanduser("~/.config/scratch/config.json")
     if os.path.exists(config_file):
         with open(config_file, "r") as f:
             config = json.load(f)
             API_KEY = config.get("CLAUDE_API_KEY")
+            PERPLEXITY_API_KEY = config.get("PERPLEXITY_API_KEY")
     if not API_KEY:
-        print("Error: API key not found in config file.")
+        print("Error: Claude API key not found in config file.")
         print(f"Please ensure you have a valid 'CLAUDE_API_KEY' in {config_file}")
         print("You can obtain an API key from https://www.anthropic.com")
         sys.exit(1)
+    if not PERPLEXITY_API_KEY:
+        print("Warning: Perplexity API key not found in config file.")
+        print(f"Please add a valid 'PERPLEXITY_API_KEY' to {config_file} to use the /perplexity command")
+        print("You can obtain an API key from https://www.perplexity.ai")
 
 
 @sleep_and_retry
@@ -328,38 +334,93 @@ def webpage_to_markdown(url):
         return None
 
 
-def process_suggestion(query, conversation_history=""):
+def perplexity_query(query: str, conversation_history: List[str], global_context: Dict[str, str]) -> str:
+    """Use Perplexity API to get an answer for the given query, including context and conversation history"""
+    if not PERPLEXITY_API_KEY:
+        return "Error: Perplexity API key not set. Please add it to your config file."
+
+    url = "https://api.perplexity.ai/chat/completions"
+    
+    context_str = "\n".join([f"{k}: {v}" for k, v in global_context.items()])
+    history_str = "\n".join(conversation_history)
+    
+    full_query = f"""Global Context:
+{context_str}
+
+Conversation History:
+{history_str}
+
+Current Query: {query}
+
+Please provide a concise and accurate answer based on the above context and query."""
+
+    payload = {
+        "model": "llama-3.1-sonar-small-128k-online",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Provide concise and accurate answers based on the given context and conversation history."
+            },
+            {
+                "role": "user",
+                "content": full_query
+            }
+        ],
+        "max_tokens": 300,  # Increased to allow for longer responses
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "stream": False
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except requests.exceptions.RequestException as e:
+        return f"Error querying Perplexity API: {str(e)}"
+
+
+def process_suggestion(query, conversation_history):
     global_context = get_global_context()
 
     if query.startswith("!"):
         command = query[1:].strip()
         print(f"> {command}")
         captured_output = execute_shell_command(command)
-        return command, captured_output
+        return command, captured_output, conversation_history
     elif query.startswith("/ask "):
         question = query[5:].strip()
-        answer = ask_question(question, conversation_history, global_context)
+        answer = ask_question(question, "\n".join(conversation_history), global_context)
         print(f"Answer: {answer}")
-        return f"/ask {question}", answer
+        return f"/ask {question}", answer, conversation_history
     elif query.startswith("/sh "):
         command = query[4:].strip()
         print(f"> {command}")
         captured_output = execute_command(command)
-        return command, captured_output
+        return command, captured_output, conversation_history
     elif query.startswith("/multi "):
         script_request = query[7:].strip()
         suggested_script = get_suggestion(
-            script_request, conversation_history, global_context, is_multiline=True
+            script_request, "\n".join(conversation_history), global_context, is_multiline=True
         )
         print(f"Suggested script:\n{suggested_script}")
+        
+        # Add the suggested script to the conversation history
+        conversation_history.append(f"Assistant (multi-line script suggestion):\n{suggested_script}")
 
         while True:
             choice = input("\nRun this script? [Y]es/[N]o/[E]dit: ").lower()
             if choice in ["y", "yes", ""]:
                 captured_output = execute_command(suggested_script, is_multiline=True)
-                return f"/multi {script_request}", captured_output
+                return f"/multi {script_request}", captured_output, conversation_history
             elif choice in ["n", "no"]:
-                return f"/multi {script_request}", "[Script not executed]"
+                return f"/multi {script_request}", "[Script not executed]", conversation_history
             elif choice in ["e", "edit"]:
                 with tempfile.NamedTemporaryFile(
                     mode="w", suffix=".sh", delete=False
@@ -374,43 +435,51 @@ def process_suggestion(query, conversation_history=""):
 
                 os.unlink(temp_script_path)
                 print(f"Updated script:\n{suggested_script}")
+                
+                # Add the updated script to the conversation history
+                conversation_history.append(f"User edited script:\n{suggested_script}")
             else:
                 print("Invalid choice. Please enter Y, N, or E.")
     elif query.strip().lower() == "/copy":
-        copy_context_to_clipboard(conversation_history)
-        return "/copy", "Global context and conversation history copied to clipboard"
+        copy_context_to_clipboard("\n".join(conversation_history))
+        return "/copy", "Global context and conversation history copied to clipboard", conversation_history
     elif query.strip().lower() == "/context":
         show_global_context()
-        return "/context", "Global context displayed"
+        return "/context", "Global context displayed", conversation_history
     elif query.startswith("/add "):
         filename = query[5:].strip()
         file_contents = add_file_to_context(filename)
         if file_contents.startswith("Error:"):
             print(file_contents)
-            return f"/add {filename}", file_contents
+            return f"/add {filename}", file_contents, conversation_history
         else:
             global_context[f"File_{filename}"] = file_contents
             print(f"Added contents of '{filename}' to the context.")
-            return f"/add {filename}", f"Contents of '{filename}' added to context"
+            return f"/add {filename}", f"Contents of '{filename}' added to context", conversation_history
     elif query.startswith("/web "):
         url = query[5:].strip()
         markdown = webpage_to_markdown(url)
         if markdown:
             global_context[f"Webpage_{url}"] = markdown[:1000]  # Limit to first 1000 characters
             print(f"Added content of '{url}' to the context (first 1000 characters).")
-            return f"/web {url}", f"Content of '{url}' added to context"
+            return f"/web {url}", f"Content of '{url}' added to context", conversation_history
         else:
-            return f"/web {url}", f"Error: Failed to fetch or convert '{url}'"
+            return f"/web {url}", f"Error: Failed to fetch or convert '{url}'", conversation_history
+    elif query.startswith("/perplexity "):
+        perplexity_query_text = query[11:].strip()
+        answer = perplexity_query(perplexity_query_text, conversation_history, global_context)
+        print(f"Perplexity Answer: {answer}")
+        return f"/perplexity {perplexity_query_text}", answer, conversation_history
     else:
-        suggested_command = get_suggestion(query, conversation_history, global_context)
+        suggested_command = get_suggestion(query, "\n".join(conversation_history), global_context)
         print(f"> {suggested_command}")
 
         run_choice = input("\nRun? [Y/n]: ").lower()
         if run_choice in ["y", ""]:
             captured_output = execute_command(suggested_command)
-            return suggested_command, captured_output
+            return suggested_command, captured_output, conversation_history
         else:
-            return suggested_command, "[Command not executed]"
+            return suggested_command, "[Command not executed]", conversation_history
 
 
 def handle_conversation():
@@ -435,9 +504,11 @@ def handle_conversation():
             continue
 
         conversation_history.append(f"User: {query}")
-        suggested_command, output = process_suggestion(
-            query, "\n".join(conversation_history)
+        suggested_command, output, updated_history = process_suggestion(
+            query, conversation_history
         )
+
+        conversation_history = updated_history
 
         if query.startswith("!"):
             conversation_history.append(f"User executed: {suggested_command}")
@@ -475,6 +546,7 @@ def print_help_table():
         ["/copy", "Copy global context and conversation history to clipboard"],
         ["/add <filename>", "Add file contents to the context"],
         ["/web <url>", "Add webpage content as markdown to the context"],
+        ["/perplexity <query>", "Get an answer using the Perplexity API"],
         ["/help", "Show this help table"],
         ["exit", "Quit the program"]
     ])
@@ -489,7 +561,7 @@ def main():
     )
     args = parser.parse_args()
 
-    load_api_key()
+    load_api_keys()
 
     if args.query:
         query = " ".join(args.query)
