@@ -11,6 +11,7 @@ CLI Suggest is an intelligent command-line tool that provides suggestions and as
 - Incorporates global context, including recent and common commands
 - Displays current global context on demand
 - Adds file contents to the context for improved suggestions
+- Adds webpage content as markdown to the context
 
 ## TODO
 
@@ -45,6 +46,7 @@ Enter your request at the prompt. The following commands are available:
 | `/context` | Display the current global context |
 | `/copy` | Copy global context and conversation history to clipboard |
 | `/add <filename>` | Add file contents to the context |
+| `/web <url>` | Add webpage content as markdown to the context |
 | `/help` | Show the help table |
 | `exit` | Quit the program |
 
@@ -62,6 +64,9 @@ Ensure you have a valid 'CLAUDE_API_KEY' in `~/.config/scratch/config.json`. You
 - anthropic
 - prompt_toolkit
 - atuin (for command history management)
+- requests
+- beautifulsoup4
+- html2text
 
 Note: This tool relies on `atuin` for command history management. Make sure you have `atuin` installed and properly configured on your system.
 

@@ -13,6 +13,9 @@ from prompt_toolkit.history import FileHistory
 from collections import Counter
 from textwrap import dedent
 from prettytable import PrettyTable
+import requests
+from bs4 import BeautifulSoup
+import html2text
 
 API_KEY = None
 RATE_LIMIT = 20  # requests per minute
@@ -303,6 +306,28 @@ Conversation History:
         print(f"Error copying to clipboard: {e}")
 
 
+def webpage_to_markdown(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        text = soup.get_text()
+        
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        markdown = h.handle(text)
+        
+        return markdown
+    except Exception as e:
+        print(f"Error converting webpage to markdown: {e}")
+        return None
+
+
 def process_suggestion(query, conversation_history=""):
     global_context = get_global_context()
 
@@ -367,6 +392,15 @@ def process_suggestion(query, conversation_history=""):
             global_context[f"File_{filename}"] = file_contents
             print(f"Added contents of '{filename}' to the context.")
             return f"/add {filename}", f"Contents of '{filename}' added to context"
+    elif query.startswith("/web "):
+        url = query[5:].strip()
+        markdown = webpage_to_markdown(url)
+        if markdown:
+            global_context[f"Webpage_{url}"] = markdown[:1000]  # Limit to first 1000 characters
+            print(f"Added content of '{url}' to the context (first 1000 characters).")
+            return f"/web {url}", f"Content of '{url}' added to context"
+        else:
+            return f"/web {url}", f"Error: Failed to fetch or convert '{url}'"
     else:
         suggested_command = get_suggestion(query, conversation_history, global_context)
         print(f"> {suggested_command}")
@@ -440,6 +474,7 @@ def print_help_table():
         ["/context", "Display the current global context"],
         ["/copy", "Copy global context and conversation history to clipboard"],
         ["/add <filename>", "Add file contents to the context"],
+        ["/web <url>", "Add webpage content as markdown to the context"],
         ["/help", "Show this help table"],
         ["exit", "Quit the program"]
     ])
