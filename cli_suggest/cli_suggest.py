@@ -124,8 +124,21 @@ def execute_command(suggested_command, is_multiline=False):
         print(f"Error executing command: {e}")
         return str(e)
 
+def execute_shell_command(command):
+    """Execute a shell command directly and return its output"""
+    try:
+        result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        return f"Error: {e.stderr}"
+
 def process_suggestion(query, conversation_history=""):
-    if query.startswith("/ask "):
+    if query.startswith("!"):
+        command = query[1:].strip()
+        print(f"> {command}")
+        captured_output = execute_shell_command(command)
+        return command, captured_output
+    elif query.startswith("/ask "):
         question = query[5:].strip()
         answer = ask_question(question, conversation_history)
         print(f"Answer: {answer}")
