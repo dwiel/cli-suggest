@@ -555,8 +555,34 @@ def print_help_table():
     print(table)
 
 
+import base64
+
+def handle_failed_command(failed_command: str) -> None:
+    """Handle a failed command and suggest a fix"""
+    client = anthropic.Anthropic(api_key=API_KEY)
+
+    prompt = f"""A command has failed. Suggest a fix or alternative command.
+
+Failed command: {failed_command}
+
+Provide only a single command to fix the issue or an alternative command, without any explanation:"""
+
+    message = rate_limited_api_call(client, prompt, max_tokens=200)
+    suggested_command = message.content[0].text.strip()
+
+    print(f"Suggested fix: {suggested_command}")
+    
+    run_choice = input("\nRun this command? [Y/n]: ").lower()
+    if run_choice in ["y", ""]:
+        captured_output = execute_command(suggested_command)
+        print(captured_output)
+    else:
+        print("Command not executed.")
+
 def main():
     parser = argparse.ArgumentParser(description="Get command-line suggestions.")
+    parser.add_argument("--hook", action="store_true", help="Run in hook mode for failed commands")
+    parser.add_argument("--failed-command", help="The failed command")
     parser.add_argument(
         "query", nargs=argparse.REMAINDER, help="The query for command suggestion"
     )
@@ -564,12 +590,16 @@ def main():
 
     load_api_keys()
 
-    if args.query:
+    if args.hook:
+        if not args.failed_command:
+            print("Error: --failed-command is required in hook mode")
+            sys.exit(1)
+        handle_failed_command(args.failed_command)
+    elif args.query:
         query = " ".join(args.query)
         process_suggestion(query, "")
     else:
         handle_conversation()
-
 
 if __name__ == "__main__":
     main()
