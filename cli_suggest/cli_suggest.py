@@ -465,8 +465,8 @@ def process_suggestion(query, conversation_history):
             return f"/web {url}", f"Content of '{url}' added to context", conversation_history
         else:
             return f"/web {url}", f"Error: Failed to fetch or convert '{url}'", conversation_history
-    elif query.startswith("/perplexity "):
-        perplexity_query_text = query[11:].strip()
+    elif query.startswith("/perplexity ") or query.startswith("/perp "):
+        perplexity_query_text = query[11:].strip() if query.startswith("/perplexity ") else query[6:].strip()
         answer = perplexity_query(perplexity_query_text, conversation_history, global_context)
         print(f"Perplexity Answer: {answer}")
         return f"/perplexity {perplexity_query_text}", answer, conversation_history
@@ -547,6 +547,7 @@ def print_help_table():
         ["/add <filename>", "Add file contents to the context"],
         ["/web <url>", "Add webpage content as markdown to the context"],
         ["/perplexity <query>", "Get an answer using the Perplexity API"],
+        ["/perp <query>", "Alias for /perplexity"],
         ["/help", "Show this help table"],
         ["exit", "Quit the program"]
     ])
@@ -565,7 +566,7 @@ def main():
 
     if args.query:
         query = " ".join(args.query)
-        process_suggestion(query)
+        process_suggestion(query, "")
     else:
         handle_conversation()
 
