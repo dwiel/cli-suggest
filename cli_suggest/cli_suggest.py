@@ -355,7 +355,7 @@ Current Query: {query}
 Please provide a concise and accurate answer based on the above context and query."""
 
     payload = {
-        "model": "llama-3.1-sonar-small-128k-online",
+        "model": "llama-3.1-sonar-huge-128k-online",
         "messages": [
             {
                 "role": "system",
@@ -366,7 +366,7 @@ Please provide a concise and accurate answer based on the above context and quer
                 "content": full_query
             }
         ],
-        "max_tokens": 300,  # Increased to allow for longer responses
+        "max_tokens": 1000,  # Increased to take advantage of the larger model's capabilities
         "temperature": 0.2,
         "top_p": 0.9,
         "stream": False
