@@ -20,12 +20,22 @@ cli_suggest_hook() {
 
 # preexec function to store the command being executed
 cli_suggest_preexec() {
+    # Skip if we're in a completion context
+    if [[ "$ZSH_EVAL_CONTEXT" == *:completion:* ]]; then
+        return
+    fi
+
     # Store the command that is about to be executed
     cli_suggest_last_command="$1"
 }
 
 # TRAPZERR function to capture failed commands
 TRAPZERR() {
+    # Skip if we're in a completion context or shfunc:shfunc context
+    if [[ "$ZSH_EVAL_CONTEXT" == *:completion:* ]] || [[ "$ZSH_EVAL_CONTEXT" == *shfunc:* ]]; then
+        return
+    fi
+
     local exit_code=$?
     # Use the command stored in preexec
     local last_command="$cli_suggest_last_command"
