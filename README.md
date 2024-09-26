@@ -77,3 +77,35 @@ Note: This tool relies on `atuin` for command history management. Make sure you 
 ## License
 
 (Add license information here)
+
+## Aider notes for now:
+
+> /ask is there a way to use a less detailed  map to then determine which parts of a more detailed map should be inclu
+ded in the final query?
+
+Warning: it's best to only add files that need changes to the chat.
+https://aider.chat/docs/troubleshooting/edit-errors.html
+That's an excellent suggestion for improving the repo map functionality. Currently, aider doesn't have a built-in feature that uses a two-stage mapping process as you've described. However, your idea is a smart approach to balancing breadth and depth in large repositories. Here's how such a system could theoretically work:
+
+1. Initial Broad Map:
+   - Create a high-level map of the entire repository with minimal detail.
+   - This map would include all directories and files but with very little content from each file.
+
+2. Relevance Scoring:
+   - Use this broad map to score the relevance of different parts of the codebase to the current task or query.
+   - This could involve techniques like keyword matching, file name relevance, or even a quick AI assessment.
+
+3. Detailed Mapping:
+   - Based on the relevance scores, allocate more tokens to the most relevant parts of the codebase.
+   - Create a more detailed map of these high-scoring areas, including more content and context.
+
+4. Final Query Composition:
+   - Combine the high-level overview with the detailed information from relevant areas.
+   - This would provide both broad context and specific details where they're most needed.
+
+While this exact process isn't currently implemented in aider, you can approximate this approach manually:
+
+1. Use `/map` with a low token count to get a broad overview.
+2. Based on this overview, identify key areas of interest.
+3. Manually `/add` the most relevant files or directories for a more detailed look.
+4. Use `/map_refresh` to update the repo map with this new context.

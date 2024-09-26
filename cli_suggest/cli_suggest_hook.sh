@@ -6,27 +6,30 @@ if [[ -n "$CLI_SUGGEST_HOOK_LOADED" ]]; then
 fi
 CLI_SUGGEST_HOOK_LOADED=1
 
-# Initialize variable to store the last command
+# Initialize variables to store the last command and its start time
 cli_suggest_last_command=""
+cli_suggest_command_start_time=0
 
 # Function to handle failed commands
 cli_suggest_hook() {
     local last_command="$1"
     local last_command_exit_code="$2"
+    local execution_time="$3"
 
-    echo "Command failed: $last_command (Exit Code: $last_command_exit_code)" >&2
+    echo "Command failed: $last_command (Exit Code: $last_command_exit_code, Execution Time: ${execution_time}s)" >&2
     cli-suggest --hook --failed-command "$last_command"
 }
 
-# preexec function to store the command being executed
+# preexec function to store the command being executed and its start time
 cli_suggest_preexec() {
     # Skip if we're in a completion context
     if [[ "$ZSH_EVAL_CONTEXT" == *:completion:* ]]; then
         return
     fi
 
-    # Store the command that is about to be executed
+    # Store the command that is about to be executed and its start time
     cli_suggest_last_command="$1"
+    cli_suggest_command_start_time=$SECONDS
 }
 
 # TRAPZERR function to capture failed commands
@@ -40,13 +43,17 @@ TRAPZERR() {
     # Use the command stored in preexec
     local last_command="$cli_suggest_last_command"
 
-    # Proceed only if a command was actually executed
-    if [[ -n "$last_command" ]]; then
-        cli_suggest_hook "$last_command" "$exit_code"
+    # Calculate execution time
+    local execution_time=$((SECONDS - cli_suggest_command_start_time))
+
+    # Proceed only if a command was actually executed and it ran for less than 1 second
+    if [[ -n "$last_command" && "$execution_time" -lt 1 ]]; then
+        cli_suggest_hook "$last_command" "$exit_code" "$execution_time"
     fi
 
-    # Reset the stored command
+    # Reset the stored command and start time
     cli_suggest_last_command=""
+    cli_suggest_command_start_time=0
 }
 
 # Set up the hooks for Zsh
