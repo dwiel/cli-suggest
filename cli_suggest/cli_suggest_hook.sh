@@ -17,7 +17,13 @@ cli_suggest_hook() {
     local execution_time="$3"
 
     echo "Command failed: $last_command (Exit Code: $last_command_exit_code, Execution Time: ${execution_time}s)" >&2
-    cli-suggest --hook --failed-command "$last_command"
+    
+    # Check if the command starts with "pyton" or "python3"
+    if [[ "$last_command" =~ ^(python|python3|pytest) ]]; then
+        echo "Python command detected. Skipping suggestion." >&2
+    else
+        cli-suggest --hook --failed-command "$last_command"
+    fi
 }
 
 # preexec function to store the command being executed and its start time
