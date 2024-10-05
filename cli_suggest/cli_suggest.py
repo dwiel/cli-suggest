@@ -366,7 +366,7 @@ Please provide a concise and accurate answer based on the above context and quer
                 "content": full_query
             }
         ],
-        "max_tokens": 1000,  # Increased to take advantage of the larger model's capabilities
+        "max_tokens": 1000,
         "temperature": 0.2,
         "top_p": 0.9,
         "stream": False
